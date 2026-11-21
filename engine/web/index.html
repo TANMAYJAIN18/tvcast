@@ -152,6 +152,16 @@ footer{max-width:1240px;margin:20px auto 0;padding:0 28px;color:var(--faint);fon
 </header>
 
 <main>
+  <div id="bgwarn" style="display:none;margin-bottom:18px;padding:14px 16px;border-radius:16px;background:rgba(255,181,71,.12);border:1px solid rgba(255,181,71,.4)">
+    <b style="color:var(--warn)">Your phone may pause TV Cast when the screen is off.</b>
+    <div id="bgtip" style="color:var(--dim);font-size:13px;margin:6px 0 10px"></div>
+    <button class="btn p sm" onclick="TVCastAndroid.fixBackground()">Fix it</button>
+  </div>
+  <div id="lidwarn" style="display:none;margin-bottom:18px;padding:14px 16px;border-radius:16px;background:rgba(255,181,71,.12);border:1px solid rgba(255,181,71,.4);align-items:center;gap:14px">
+    <div style="flex:1"><b style="color:var(--warn)">Closing the MacBook lid will stop the movie.</b>
+    <div style="color:var(--dim);font-size:13px;margin-top:4px">Turn on lid-closed streaming once (asks your Mac password). It only works while a movie is playing; the Mac sleeps normally otherwise.</div></div>
+    <button class="btn p sm" onclick="lidOn(this)">Turn on</button>
+  </div>
   <section id="np">
     <div class="row1"><div class="eq"><b></b><b></b><b></b></div><div class="lbl" id="npon">Now playing</div></div>
     <div class="title" id="npTitle"></div>
@@ -329,6 +339,7 @@ async function loadInfo(){INFO=await api("/api/info");$("ver").textContent="TV C
   const lid=INFO.lidGuard;$("lidtxt").textContent=lid?(INFO.os==="darwin"?"On — only while a movie is playing; the Mac sleeps normally otherwise. Keep it plugged in for long movies.":"On. Keep it plugged in for long movies."):"Off — closing the lid stops streaming.";
   $("lidact").innerHTML=lid?'<span class="pill ok">On</span>':'<button class="btn p sm" onclick="lidOn(this)">Turn on</button>';
   const android=INFO.os==="android";$("lidrow").style.display=android?"none":"";$("openBtn").style.display=android?"none":"";
+  $("lidwarn").style.display=(INFO.os==="darwin"&&INFO.laptop&&!INFO.lidGuard)?"flex":"none";
   $("awake").textContent=INFO.awake?"● Keeping this device awake for streaming":"";
 }
 async function lidOn(b){await busy(b,"…",async()=>{const r=await api("/api/lidguard",{});toast(r.msg,r.ok?"ok":"bad",7000);loadInfo()})}
@@ -350,6 +361,11 @@ async function poll(){const s=await api("/api/status");lastStatus=s;const np=$("
   if(!seeking){$("seek").value=s.pct||0;$("npCur").textContent=hms(s.time)}$("npTot").textContent=hms(s.total);
   $("pp").textContent=s.paused?"▶":"❚❚";fill($("aud"),s.audios||[],s.audio,false);fill($("sub"),s.subs||[],s.sub,true)}
 
+function checkBg(){const A=window.TVCastAndroid;if(!A)return;let ok=true;try{ok=A.backgroundAllowed()}catch(e){}
+  const m=(A.maker&&A.maker())||"";$("bgwarn").style.display=ok?"none":"block";
+  $("bgtip").textContent=m.indexOf("vivo")>=0||m.indexOf("iqoo")>=0?"Tap Fix it → Allow. Then in App info → Battery choose “Allow high background power consumption”.":
+    m.indexOf("samsung")>=0?"Tap Fix it → Allow. Then in App info → Battery choose “Unrestricted”.":"Tap Fix it → Allow, so movies keep playing with the screen off."}
+document.addEventListener("visibilitychange",checkBg);setInterval(checkBg,5000);checkBg();
 loadDevs().then(()=>{if(!DEVS.length)scan()});loadLib();loadInfo();poll();
 setInterval(poll,1500);setInterval(loadDevs,10000);setInterval(loadInfo,30000);
 </script>

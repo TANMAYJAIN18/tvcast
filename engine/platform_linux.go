@@ -142,3 +142,6 @@ func pick(opts ...[]string) (string, bool) {
 	}
 	return "", false // no dialog tool: the UI will ask for a typed path
 }
+
+// isLaptop is only used for the macOS lid warning.
+func isLaptop() bool { return false }

@@ -45,7 +45,10 @@ const (
 	authPublicKey = 3
 )
 
-var useNativeADB = isAndroidBuild || os.Getenv("TVCAST_NATIVE_ADB") == "1"
+// The built-in client is used everywhere: it needs no adb download, can't be broken by a
+// shared adb server started by other tools (or without network permission), and runs with
+// TV Cast's own permissions. TVCAST_NATIVE_ADB=0 falls back to the adb tool on computers.
+var useNativeADB = isAndroidBuild || os.Getenv("TVCAST_NATIVE_ADB") != "0"
 
 var errUnauthorized = errors.New("unauthorized")
 
@@ -104,17 +107,23 @@ var (
 func adbKeys() (*rsa.PrivateKey, []byte) {
 	keyOnce.Do(func() {
 		path := os.Getenv("TVCAST_ADB_KEY")
+		if path == "" && !isAndroidBuild {
+			// Reuse this computer's standard adb key if it has one: TVs that already
+			// trust this computer then don't ask again.
+			if h, err := os.UserHomeDir(); err == nil {
+				if _, err := os.Stat(filepath.Join(h, ".android", "adbkey")); err == nil {
+					path = filepath.Join(h, ".android", "adbkey")
+				}
+			}
+		}
 		if path == "" {
 			path = filepath.Join(appDir(), "adbkey")
 		}
-		if b, err := os.ReadFile(path); err == nil {
-			if blk, _ := pem.Decode(b); blk != nil {
-				if k, err := x509.ParsePKCS1PrivateKey(blk.Bytes); err == nil {
-					privKey = k
-				} else if k8, err := x509.ParsePKCS8PrivateKey(blk.Bytes); err == nil {
-					privKey, _ = k8.(*rsa.PrivateKey)
-				}
-			}
+		privKey = loadRSAKey(path)
+		if privKey == nil && path != filepath.Join(appDir(), "adbkey") && os.Getenv("TVCAST_ADB_KEY") == "" {
+			// never overwrite another tool's key: fall back to TV Cast's own key file
+			path = filepath.Join(appDir(), "adbkey")
+			privKey = loadRSAKey(path)
 		}
 		if privKey == nil {
 			k, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -130,6 +139,26 @@ func adbKeys() (*rsa.PrivateKey, []byte) {
 		pubKey = encodeADBPublicKey(&privKey.PublicKey)
 	})
 	return privKey, pubKey
+}
+
+func loadRSAKey(path string) *rsa.PrivateKey {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	blk, _ := pem.Decode(b)
+	if blk == nil {
+		return nil
+	}
+	if k, err := x509.ParsePKCS1PrivateKey(blk.Bytes); err == nil {
+		return k
+	}
+	if k8, err := x509.ParsePKCS8PrivateKey(blk.Bytes); err == nil {
+		if k, ok := k8.(*rsa.PrivateKey); ok {
+			return k
+		}
+	}
+	return nil
 }
 
 // encodeADBPublicKey produces Android's RSAPublicKey struct (base64) + " name\0".

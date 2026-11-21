@@ -109,3 +109,6 @@ func ps(script string) (string, bool) {
 	}
 	return strings.TrimSpace(string(out)), true
 }
+
+// isLaptop is only used for the macOS lid warning.
+func isLaptop() bool { return false }

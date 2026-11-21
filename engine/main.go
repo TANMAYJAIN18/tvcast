@@ -11,14 +11,22 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 )
 
-const Port = 8765
+// Port is the engine's port (8765). TVCAST_PORT overrides it, for tests only.
+var Port = func() int {
+	if p, err := strconv.Atoi(os.Getenv("TVCAST_PORT")); err == nil && p > 0 && p < 65536 {
+		return p
+	}
+	return 8765
+}()
 
 // Version is set at build time with -ldflags "-X main.Version=1.2.3".
 var Version = "dev"
@@ -39,6 +47,27 @@ func main() {
 			os.Exit(2)
 		}
 	}()
+
+	// Windows has no service manager restarting us (macOS: launchd, Linux: systemd,
+	// Android: the app's service), so there the engine runs under its own watchdog.
+	if runtime.GOOS == "windows" && os.Getenv("TVCAST_CHILD") == "" {
+		if engineRunning() {
+			if !*background {
+				openUI()
+			}
+			return
+		}
+		if !*background { // shortcut click: start the supervised engine, then show the UI
+			startDetached()
+			for i := 0; i < 40 && !engineRunning(); i++ {
+				time.Sleep(250 * time.Millisecond)
+			}
+			openUI()
+			return
+		}
+		supervise()
+		return
+	}
 
 	// Only one engine per computer. A second launch just opens the UI.
 	if engineRunning() {
@@ -66,6 +95,7 @@ func main() {
 	srv := &http.Server{
 		Handler:           newRouter(),
 		ReadHeaderTimeout: 20 * time.Second,
+		MaxHeaderBytes:    64 << 10,
 		IdleTimeout:       120 * time.Second,
 		ErrorLog:          log.New(io.Discard, "", 0), // client disconnects mid-stream are normal
 	}
@@ -114,4 +144,44 @@ func setupLogging() {
 		log.SetOutput(io.MultiWriter(f, os.Stderr))
 	}
 	log.SetFlags(log.LstdFlags)
+}
+
+// supervise runs the engine as a child process and restarts it if it ever crashes.
+func supervise() {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Printf("supervisor: %v", err)
+		return
+	}
+	fails := 0
+	for {
+		started := time.Now()
+		cmd := exec.Command(exe, "--background")
+		cmd.Env = append(os.Environ(), "TVCAST_CHILD=1")
+		hideWindow(cmd)
+		err := cmd.Run()
+		if err == nil {
+			return // clean exit (e.g. another engine was already running)
+		}
+		log.Printf("engine stopped (%v); restarting", err)
+		if time.Since(started) < 30*time.Second {
+			fails++
+		} else {
+			fails = 0
+		}
+		time.Sleep(time.Duration(min(fails, 15)) * 2 * time.Second)
+	}
+}
+
+func startDetached() {
+	exe, err := os.Executable()
+	if err != nil {
+		return
+	}
+	cmd := exec.Command(exe, "--background")
+	hideWindow(cmd)
+	_ = cmd.Start()
+	if cmd.Process != nil {
+		_ = cmd.Process.Release()
+	}
 }

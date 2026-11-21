@@ -73,7 +73,7 @@ The installer gives you:
 | **Kodi management** | Install, update (always the latest official release) and optimize Kodi from the app |
 | **Stays awake while streaming** | The computer won't sleep while a TV is playing *or paused*; normal sleep when idle |
 | **Lid closed** | macOS: optional helper keeps a MacBook streaming with the lid shut, only while streaming, and never below 10 % battery. Linux: automatic (systemd inhibitor). Windows: one click in settings |
-| **Self-healing** | Engine restarts itself if it ever stops; restarts a stuck `adb`; recovers from errors instead of crashing |
+| **Self-healing** | Engine restarts itself if it ever stops (launchd / systemd / Android service / built-in watchdog on Windows); drops stuck streams after 30 min without progress (Kodi reconnects on resume); caps simultaneous streams; recovers from errors instead of crashing |
 | **Private and secure** | Everything stays on your network. The control panel only answers this computer; movie links use a random secret; Kodi remote control is password-protected (handled for you) |
 
 ## How it works
@@ -92,14 +92,14 @@ The installer gives you:
 
 - **Engine** (`engine/`, Go, no dependencies): one codebase for every OS. Streams with `sendfile` and full HTTP Range support; ~300 MB/s on a laptop, far beyond what any 4K movie needs.
 - **macOS app** (`macos/`, Swift): native window, menus and Dock icon. The engine runs as a per-user LaunchAgent with automatic restart.
-- **adb**: on computers, Google's official platform-tools (downloaded automatically if missing). On Android, a built-in ADB client written in Go (RSA auth, shell, sync push/pull, port forwarding), so phones need no extra tools.
+- **adb**: a built-in ADB client written in Go (RSA auth, shell, sync push/pull, port forwarding), used on every platform. It needs no downloads and can't be broken by other tools' adb servers. On computers it reuses your existing `~/.android/adbkey`, so TVs that already trust the computer don't ask again. (`TVCAST_NATIVE_ADB=0` switches back to Google's adb tool.)
 - **Android app** (`android/`, Java, no third-party libraries): runs the same engine as a foreground service and shows the same UI in a WebView.
 - **ffprobe** (optional): if installed (`brew install ffmpeg`), shows resolution/HDR/audio badges.
 
 ## Tips
 
 - Put the computer on **5 GHz Wi-Fi or Ethernet** for big 4K remuxes (they peak around 80–120 Mbit/s).
-- On MacBooks, keep it **plugged in** for long movies with the lid closed.
+- On MacBooks, TV Cast shows a banner until **lid-closed streaming** is on. Click **Turn on** once (asks your password). Without it, macOS always sleeps when the lid closes. Keep the Mac **plugged in** for long movies with the lid closed.
 - Fire TV sleeping? Press a remote button. A sleeping Fire TV may drop off Wi-Fi.
 - Something odd? macOS: TV Cast menu → **Restart Engine** or **Show Log**. Logs: `~/Library/Application Support/TVCast/tvcast.log` (Windows: `%AppData%\TVCast`, Linux: `~/.config/TVCast`).
 

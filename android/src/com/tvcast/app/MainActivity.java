@@ -17,6 +17,7 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.view.View;
 import android.view.Window;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
@@ -56,6 +57,7 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(false);
         s.setAllowContentAccess(false);
         web.setWebChromeClient(new WebChromeClient());
+        web.addJavascriptInterface(new Bridge(), "TVCastAndroid");
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
@@ -191,6 +193,36 @@ public class MainActivity extends Activity {
                 })
                 .setNegativeButton("Later", null)
                 .show();
+    }
+
+    /** Lets the page show a "fix background streaming" banner. Only our local UI is ever loaded. */
+    final class Bridge {
+        @JavascriptInterface
+        public boolean backgroundAllowed() {
+            if (Build.VERSION.SDK_INT < 23) return true;
+            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
+            return pm == null || pm.isIgnoringBatteryOptimizations(getPackageName());
+        }
+
+        @JavascriptInterface
+        public String maker() {
+            return Build.MANUFACTURER == null ? "" : Build.MANUFACTURER.toLowerCase();
+        }
+
+        @JavascriptInterface
+        public void fixBackground() {
+            ui.post(() -> {
+                try {
+                    if (!backgroundAllowed()) {
+                        startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:" + getPackageName())));
+                    } else {
+                        startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:" + getPackageName())));
+                    }
+                } catch (Exception ignored) { }
+            });
+        }
     }
 
     static void post(String path) {

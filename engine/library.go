@@ -27,6 +27,7 @@ var videoExt = map[string]string{
 const minVideoSize = 30 << 20 // ignore clips/samples under 30 MB
 
 type Library struct {
+	lastScan time.Time
 	mu       sync.Mutex
 	scanMu   sync.Mutex
 	paths    map[string]string // id -> path
@@ -34,6 +35,8 @@ type Library struct {
 	probes   map[string]map[string]any
 	probeDir string
 }
+
+var probeSlots = make(chan struct{}, 4)
 
 var library = &Library{paths: map[string]string{}, probes: loadProbes()}
 
@@ -103,6 +106,7 @@ func (l *Library) Scan() {
 	}
 	l.mu.Lock()
 	l.paths = found
+	l.lastScan = time.Now()
 	l.mu.Unlock()
 	log.Printf("library: %d videos", len(found))
 }
@@ -110,8 +114,9 @@ func (l *Library) Scan() {
 func (l *Library) Path(id string) (string, bool) {
 	l.mu.Lock()
 	p, ok := l.paths[id]
+	recent := time.Since(l.lastScan) < 10*time.Second
 	l.mu.Unlock()
-	if !ok {
+	if !ok && !recent { // unknown id: maybe a new file; rescan, but at most every 10 s
 		l.Scan()
 		l.mu.Lock()
 		p, ok = l.paths[id]
@@ -182,6 +187,8 @@ func (l *Library) Probe(id string) map[string]any {
 	if ff == "" {
 		return info // optional tool; don't cache so it works once installed
 	}
+	probeSlots <- struct{}{} // at most 4 ffprobe processes at once
+	defer func() { <-probeSlots }()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, ff, "-v", "error", "-print_format", "json", "-show_format", "-show_streams", p)

@@ -81,15 +81,17 @@ func serveMedia(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	}
+	if !acquireStream(w) {
+		return
+	}
+	defer releaseStream()
 	markActive()
 	if ct := videoExt[strings.ToLower(filepath.Ext(name))]; ct != "" {
 		w.Header().Set("Content-Type", ct)
 	}
-	if tc, ok := w.(interface{ SetWriteBuffer(int) error }); ok {
-		_ = tc.SetWriteBuffer(4 << 20)
-	}
-	// ServeContent handles Range, HEAD, If-Range, 416 etc. and uses sendfile.
-	http.ServeContent(w, r, name, st.ModTime(), f)
+	// ServeContent handles Range, HEAD, If-Range, 416 etc.; progressWriter keeps sendfile
+	// and drops readers that make no progress for a long time.
+	http.ServeContent(progressWriter{w, http.NewResponseController(w)}, r, name, st.ModTime(), f)
 }
 
 // ---------------------------------------------------------------- API
@@ -162,7 +164,7 @@ func api(w http.ResponseWriter, r *http.Request) {
 			osName = "android"
 		}
 		writeJSON(w, map[string]any{"version": Version, "os": osName, "lidGuard": lidGuardInstalled(),
-			"awake": isAwake(), "adb": adbAvailable(), "ffprobe": findTool("ffprobe") != "", "folders": folders,
+			"awake": isAwake(), "laptop": isLaptop(), "adb": adbAvailable(), "ffprobe": findTool("ffprobe") != "", "folders": folders,
 			"videos": library.Count()})
 	case "/api/library":
 		writeJSON(w, map[string]any{"items": library.Items()})

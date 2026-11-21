@@ -61,6 +61,18 @@ func setAwake(on bool) {
 	caff = nil
 }
 
+var laptopOnce sync.Once
+var laptop bool
+
+// isLaptop reports whether this Mac has a battery (a MacBook with a lid).
+func isLaptop() bool {
+	laptopOnce.Do(func() {
+		out, _ := exec.Command("/usr/bin/pmset", "-g", "batt").Output()
+		laptop = strings.Contains(string(out), "InternalBattery")
+	})
+	return laptop
+}
+
 func lidGuardInstalled() bool {
 	_, err := os.Stat(lidGuardPlist)
 	return err == nil

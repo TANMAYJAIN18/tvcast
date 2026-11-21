@@ -78,3 +78,6 @@ func openUI() {}
 // Pickers are native on Android: the app passes the chosen path to /api/openfile.
 func pickFolder() (string, bool) { return "", false }
 func pickFile() (string, bool)   { return "", false }
+
+// isLaptop is only used for the macOS lid warning.
+func isLaptop() bool { return false }
