@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleName</key><string>TV Cast</string>
+  <key>CFBundleDisplayName</key><string>TV Cast</string>
+  <key>CFBundleIdentifier</key><string>com.tvcast.app</string>
+  <key>CFBundleExecutable</key><string>TVCast</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>CFBundleShortVersionString</key><string>__VERSION__</string>
+  <key>CFBundleVersion</key><string>__VERSION__</string>
+  <key>LSMinimumSystemVersion</key><string>12.0</string>
+  <key>LSApplicationCategoryType</key><string>public.app-category.video</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSHumanReadableCopyright</key><string>MIT License</string>
+  <key>NSLocalNetworkUsageDescription</key><string>TV Cast finds your TVs on the Wi-Fi and streams movies to them.</string>
+  <key>NSDesktopFolderUsageDescription</key><string>TV Cast lists the movies in your Desktop folder.</string>
+  <key>NSDocumentsFolderUsageDescription</key><string>TV Cast lists the movies in your Documents folder.</string>
+  <key>NSDownloadsFolderUsageDescription</key><string>TV Cast lists the movies in your Downloads folder.</string>
+  <key>NSRemovableVolumesUsageDescription</key><string>TV Cast lists movies on your external drives.</string>
+  <key>NSNetworkVolumesUsageDescription</key><string>TV Cast lists movies on your network drives.</string>
+  <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
+</dict>
+</plist>

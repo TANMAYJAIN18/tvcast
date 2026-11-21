@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TV Cast</title>
+<style>
+:root{
+  --bg:#0b0c10; --bg2:#111319; --card:#161922; --card2:#1c2030; --line:#262b3a; --line2:#323849;
+  --text:#eef0f6; --dim:#9aa1b5; --faint:#6b7287;
+  --acc:#5b8cff; --acc2:#8a6bff; --ok:#2fd08a; --warn:#ffb547; --bad:#ff5d6c;
+  --r:16px; --shadow:0 10px 40px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:radial-gradient(1200px 600px at 10% -10%,#1a2140 0%,transparent 60%),radial-gradient(900px 500px at 110% 0%,#24183f 0%,transparent 55%),var(--bg);
+  color:var(--text);font:14px/1.45 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;padding-bottom:40px}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:9px 14px;display:inline-flex;align-items:center;gap:8px;transition:.15s;white-space:nowrap}
+.btn:hover{border-color:var(--line2);background:#22273a}
+.btn:active{transform:scale(.98)}
+.btn.p{background:linear-gradient(135deg,var(--acc),var(--acc2));border:0;color:#fff;font-weight:600;box-shadow:0 6px 20px rgba(91,140,255,.35)}
+.btn.p:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.sm{padding:6px 10px;border-radius:10px;font-size:13px}
+.btn.danger{color:var(--bad)}
+.btn[disabled]{opacity:.5;pointer-events:none}
+header{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:14px;padding:14px 28px;
+  background:rgba(11,12,16,.72);backdrop-filter:saturate(1.4) blur(18px);-webkit-backdrop-filter:saturate(1.4) blur(18px);border-bottom:1px solid rgba(255,255,255,.06)}
+.logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px;letter-spacing:.2px}
+.logo i{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center;font-style:normal;font-size:15px;box-shadow:0 4px 14px rgba(91,140,255,.4)}
+.spacer{flex:1}
+.tvpick{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:7px 8px 7px 14px;cursor:pointer;min-width:240px}
+.tvpick:hover{border-color:var(--line2)}
+.tvpick .n{font-weight:600}
+.tvpick .s{color:var(--dim);font-size:12px}
+.tvpick .chev{margin-left:auto;color:var(--dim);padding:0 6px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--faint);flex:none}
+.dot.on{background:var(--ok);box-shadow:0 0 0 4px rgba(47,208,138,.15)}
+.dot.warn{background:var(--warn);box-shadow:0 0 0 4px rgba(255,181,71,.15)}
+.dot.off{background:var(--bad)}
+main{max-width:1240px;margin:0 auto;padding:24px 28px}
+/* now playing */
+#np{display:none;margin-bottom:26px;border-radius:22px;padding:22px 24px;background:linear-gradient(135deg,rgba(91,140,255,.18),rgba(138,107,255,.12)),var(--card);border:1px solid rgba(124,140,255,.25);box-shadow:var(--shadow)}
+#np .row1{display:flex;align-items:center;gap:14px}
+#np .eq{display:flex;gap:3px;align-items:flex-end;height:18px}
+#np .eq b{width:4px;background:var(--acc);border-radius:2px;animation:eq 1s infinite ease-in-out}
+#np .eq b:nth-child(2){animation-delay:.2s}#np .eq b:nth-child(3){animation-delay:.4s}
+#np.paused .eq b{animation:none;height:6px}
+@keyframes eq{0%,100%{height:5px}50%{height:18px}}
+#np .lbl{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:1px}
+#np .title{font-size:19px;font-weight:700;margin:4px 0 14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.seek{display:flex;align-items:center;gap:12px;font-variant-numeric:tabular-nums;color:var(--dim);font-size:12px}
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1;height:6px;border-radius:6px;background:var(--line);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 0 0 4px rgba(91,140,255,.35)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:#fff;border:0}
+.ctl{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+.ctl .big{width:54px;height:54px;border-radius:50%;justify-content:center;padding:0;font-size:20px}
+.ctl .round{width:42px;height:42px;border-radius:50%;justify-content:center;padding:0}
+.ctl .grp{display:flex;gap:6px;align-items:center;margin-left:auto}
+select{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;max-width:230px}
+/* toolbar */
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.search{flex:1;min-width:240px;position:relative}
+.search input{width:100%;background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:12px 14px 12px 40px;font:inherit;outline:none}
+.search input:focus{border-color:var(--acc)}
+.search span{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--faint)}
+.chips{display:flex;gap:6px}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-size:13px;color:var(--dim)}
+.chip.on{background:var(--text);color:#0b0c10;border-color:var(--text);font-weight:600}
+h2{font-size:15px;margin:6px 0 12px;color:var(--dim);font-weight:600}
+/* grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:16px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:.18s;display:flex;flex-direction:column}
+.tile:hover{transform:translateY(-3px);border-color:var(--line2);box-shadow:var(--shadow)}
+.art{height:120px;position:relative;display:flex;align-items:flex-end;padding:12px;overflow:hidden}
+.art .t{font-weight:800;font-size:22px;line-height:1.05;letter-spacing:-.3px;text-shadow:0 2px 12px rgba(0,0,0,.5);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.art .play{position:absolute;right:12px;top:12px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.92);color:#111;display:grid;place-items:center;opacity:0;transform:scale(.9);transition:.18s;font-size:15px}
+.tile:hover .play{opacity:1;transform:none}
+.art .q{position:absolute;left:12px;top:12px;display:flex;gap:5px}
+.badge{font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);letter-spacing:.3px}
+.badge.k{background:linear-gradient(135deg,#ffd36b,#ff9f43);color:#231400}
+.badge.h{background:linear-gradient(135deg,#7cf3c1,#3ac7ff);color:#022}
+.meta{padding:11px 13px 13px}
+.meta .n{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta .d{color:var(--faint);font-size:12px;margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+.empty{text-align:center;color:var(--dim);padding:60px 20px;border:1px dashed var(--line2);border-radius:20px}
+.empty b{display:block;color:var(--text);font-size:17px;margin-bottom:6px}
+/* setup card */
+.setup{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px 24px;margin-bottom:24px}
+.setup h3{margin:0 0 4px;font-size:18px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:16px}
+.step{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:14px}
+.step .num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--card2);font-weight:700;font-size:13px;margin-bottom:8px}
+.step.done .num{background:var(--ok);color:#022}
+.step p{margin:4px 0 0;color:var(--dim);font-size:13px}
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:.2s;z-index:40}
+.scrim.on{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(460px,100vw);background:var(--bg2);border-left:1px solid var(--line);z-index:50;transform:translateX(100%);transition:.25s cubic-bezier(.2,.8,.2,1);display:flex;flex-direction:column}
+.drawer.on{transform:none}
+.drawer .hd{display:flex;align-items:center;padding:18px 20px;border-bottom:1px solid var(--line)}
+.drawer .hd h3{margin:0;font-size:17px;flex:1}
+.drawer .bd{padding:16px 20px;overflow:auto;flex:1}
+.dev{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.dev.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+.dev .top{display:flex;align-items:center;gap:10px}
+.dev .nm{font-weight:600}
+.dev .sub{color:var(--dim);font-size:12px;margin-top:2px}
+.dev .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.pill{font-size:11px;padding:2px 8px;border-radius:999px;background:var(--card2);color:var(--dim);border:1px solid var(--line)}
+.pill.ok{color:var(--ok);border-color:rgba(47,208,138,.3)}
+.pill.warn{color:var(--warn);border-color:rgba(255,181,71,.3)}
+.section{margin:22px 0 10px;color:var(--faint);font-size:12px;text-transform:uppercase;letter-spacing:1px}
+.setrow{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+.setrow .t{flex:1}
+.setrow .t small{display:block;color:var(--dim);font-size:12px}
+.folder{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px;margin-bottom:6px;font-size:13px}
+.folder span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
+.x{background:none;border:0;color:var(--faint);font-size:16px;padding:0 4px}
+.x:hover{color:var(--bad)}
+/* modal + toast */
+.modal{position:fixed;inset:0;display:none;place-items:center;z-index:70;background:rgba(0,0,0,.55)}
+.modal.on{display:grid}
+.box{background:var(--bg2);border:1px solid var(--line2);border-radius:20px;padding:22px;width:min(440px,92vw);box-shadow:var(--shadow)}
+.box h4{margin:0 0 6px;font-size:17px}
+.box p{color:var(--dim);margin:0 0 14px;white-space:pre-line}
+.box input{width:100%;background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:12px;padding:11px 12px;font:inherit;outline:none;margin-bottom:14px}
+.box input:focus{border-color:var(--acc)}
+.box .acts{display:flex;justify-content:flex-end;gap:8px}
+#toasts{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:8px;z-index:80;align-items:center}
+.toast{background:#22273a;border:1px solid var(--line2);padding:11px 16px;border-radius:12px;box-shadow:var(--shadow);max-width:560px;animation:in .2s}
+.toast.ok{border-color:rgba(47,208,138,.4)}.toast.bad{border-color:rgba(255,93,108,.5)}
+@keyframes in{from{opacity:0;transform:translateY(8px)}}
+.spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .8s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+footer{max-width:1240px;margin:20px auto 0;padding:0 28px;color:var(--faint);font-size:12px;display:flex;gap:14px;flex-wrap:wrap}
+@media (max-width:700px){header{padding:12px 14px}main{padding:16px 14px}.tvpick{min-width:0}.ctl .grp{margin-left:0}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><i>▶</i>TV Cast</div>
+  <div class="spacer"></div>
+  <div class="tvpick" id="tvpick" onclick="openDrawer()" title="TVs & settings">
+    <span class="dot" id="tvdot"></span>
+    <div><div class="n" id="tvname">No TV yet</div><div class="s" id="tvsub">Click to find your TV</div></div>
+    <span class="chev">⌄</span>
+  </div>
+  <button class="btn" onclick="openDrawer()" title="TVs & settings">⚙︎</button>
+</header>
+
+<main>
+  <section id="np">
+    <div class="row1"><div class="eq"><b></b><b></b><b></b></div><div class="lbl" id="npon">Now playing</div></div>
+    <div class="title" id="npTitle"></div>
+    <div class="seek"><span id="npCur">0:00</span><input type="range" id="seek" min="0" max="100" step="0.01" value="0"><span id="npTot">0:00</span></div>
+    <div class="ctl">
+      <button class="btn round" onclick="ctl('seekrel',-30)" title="Back 30 s">↺30</button>
+      <button class="btn round" onclick="ctl('seekrel',-10)" title="Back 10 s">↺10</button>
+      <button class="btn p big" id="pp" onclick="ctl('playpause')" title="Play / Pause">❚❚</button>
+      <button class="btn round" onclick="ctl('seekrel',10)" title="Forward 10 s">10↻</button>
+      <button class="btn round" onclick="ctl('seekrel',30)" title="Forward 30 s">30↻</button>
+      <button class="btn round" onclick="ctl('stop')" title="Stop">■</button>
+      <div class="grp">
+        <button class="btn sm" onclick="ctl('voldown')" title="Volume down">🔉</button>
+        <button class="btn sm" onclick="ctl('volup')" title="Volume up">🔊</button>
+        <select id="aud" title="Audio language" onchange="ctl('audio',this.value)"></select>
+        <select id="sub" title="Subtitles" onchange="ctl('sub',this.value)"></select>
+      </div>
+    </div>
+  </section>
+
+  <section class="setup" id="setup" style="display:none">
+    <h3>Let's connect your TV</h3>
+    <div style="color:var(--dim)">Three quick steps, only once. After that it's one click to play.</div>
+    <div class="steps">
+      <div class="step" id="st1"><div class="num">1</div><b>Turn on ADB debugging</b><p><b>Fire TV:</b> Settings → My Fire TV → About → click the name 7×, then Developer Options → ADB Debugging ON.<br><b>Android TV:</b> Settings → About → click Build 7×, then Developer options → USB/Network debugging ON.</p></div>
+      <div class="step" id="st2"><div class="num">2</div><b>Find your TV</b><p>Same Wi-Fi as this computer. When the TV asks “Allow USB debugging?”, tick Always allow → OK.</p><button class="btn p sm" style="margin-top:10px" onclick="scan()">Search network</button></div>
+      <div class="step" id="st3"><div class="num">3</div><b>Press play</b><p>TV Cast installs and tunes Kodi on the TV for you, then plays movies at full quality.</p></div>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <div class="search"><span>⌕</span><input id="q" type="search" placeholder="Search your movies and shows" oninput="render()"></div>
+    <div class="chips" id="chips">
+      <button class="chip on" data-f="all">All</button>
+      <button class="chip" data-f="4k">4K</button>
+      <button class="chip" data-f="hdr">HDR</button>
+      <button class="chip" data-f="big">Biggest</button>
+    </div>
+    <button class="btn" onclick="openFile()">Open file…</button>
+    <button class="btn" onclick="rescan(this)" title="Look for new videos">↻</button>
+  </div>
+  <h2 id="count"></h2>
+  <div class="grid" id="grid"></div>
+</main>
+<footer><span id="ver"></span><span id="awake"></span></footer>
+
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer">
+  <div class="hd"><h3>TVs & settings</h3><button class="btn ghost sm" onclick="closeDrawer()">✕</button></div>
+  <div class="bd">
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button class="btn p" id="scanBtn" onclick="scan()">Search network</button>
+      <button class="btn" onclick="addIp()">Add by IP</button>
+    </div>
+    <div id="devs"></div>
+    <div class="section">Streaming</div>
+    <div class="setrow"><div class="t">Stay awake while streaming<small>This computer won't sleep while a TV is playing or paused on a movie. Normal sleep otherwise.</small></div><span class="pill ok">Always on</span></div>
+    <div class="setrow" id="lidrow"><div class="t">Keep streaming with the lid closed<small id="lidtxt"></small></div><span id="lidact"></span></div>
+    <div class="section">Movie folders</div>
+    <div id="folders"></div>
+    <button class="btn sm" onclick="addFolder()">+ Add folder</button>
+    <div class="section">About</div>
+    <div style="color:var(--dim);font-size:13px" id="about"></div>
+  </div>
+</aside>
+
+<div class="modal" id="modal"><div class="box"><h4 id="mT"></h4><p id="mP"></p><input id="mI" style="display:none"><div class="acts"><button class="btn" id="mC">Cancel</button><button class="btn p" id="mO">OK</button></div></div></div>
+<div id="toasts"></div>
+
+<script>
+"use strict";
+let LIB=[], DEVS=[], INFO={}, PROBE={}, FILTER="all", seeking=false, lastStatus=null;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const gb=n=>n>=1e9?(n/1e9).toFixed(1)+" GB":Math.round(n/1e6)+" MB";
+const hms=s=>{s=Math.max(0,Math.floor(s||0));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+":":"")+String(m).padStart(h?2:1,"0")+":"+String(x).padStart(2,"0")};
+function toast(msg,kind="",ms=4000){if(!msg)return;const t=document.createElement("div");t.className="toast "+kind;t.textContent=msg;$("toasts").appendChild(t);setTimeout(()=>t.remove(),ms)}
+async function api(path,body){
+  try{const r=await fetch(path,body!==undefined?{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}:{});
+    return await r.json()}catch(e){return{ok:false,msg:"TV Cast engine isn't responding — it restarts by itself in a few seconds."}}
+}
+function modal(title,text,{input=false,value="",ok="OK",cancel="Cancel",placeholder=""}={}){
+  return new Promise(res=>{
+    $("mT").textContent=title;$("mP").textContent=text||"";const i=$("mI");i.style.display=input?"block":"none";i.value=value;i.placeholder=placeholder;
+    $("mO").textContent=ok;$("mC").textContent=cancel;$("mC").style.display=cancel?"":"none";$("modal").classList.add("on");
+    if(input)setTimeout(()=>i.focus(),50);
+    const done=v=>{$("modal").classList.remove("on");$("mO").onclick=$("mC").onclick=i.onkeydown=null;res(v)};
+    $("mO").onclick=()=>done(input?i.value.trim():true);$("mC").onclick=()=>done(input?null:false);
+    i.onkeydown=e=>{if(e.key==="Enter")done(i.value.trim());if(e.key==="Escape")done(null)};
+  })
+}
+async function busy(btn,label,fn){const old=btn?btn.innerHTML:"";if(btn){btn.disabled=true;btn.innerHTML='<span class="spin"></span> '+label}try{return await fn()}finally{if(btn){btn.disabled=false;btn.innerHTML=old}}}
+
+/* ---------- TVs ---------- */
+const sel=()=>DEVS.find(d=>d.selected);
+function devState(d){
+  if(!d.online)return["off","Offline — is it on and on this Wi-Fi?"];
+  if(d.adb==="unauthorized")return["warn","Accept “Allow USB debugging” on the TV"];
+  if(d.kodi===false)return["warn","Kodi not installed"];
+  if(!d.tuned)return["warn","Ready — will optimize Kodi on first play"];
+  return["on","Ready"+(d.kodi_ver?" · Kodi "+d.kodi_ver:"")];
+}
+function renderTop(){
+  const d=sel();
+  if(!d){$("tvdot").className="dot";$("tvname").textContent=DEVS.length?"Pick a TV":"No TV yet";$("tvsub").textContent=DEVS.length?"Click to choose":"Click to find your TV";return}
+  const[st,txt]=devState(d);$("tvdot").className="dot "+st;$("tvname").textContent=d.name;$("tvsub").textContent=txt;
+}
+function renderDevs(){
+  renderTop();
+  $("setup").style.display=(!DEVS.some(d=>d.online&&d.adb==="device"))?"block":"none";
+  $("st2").classList.toggle("done",DEVS.some(d=>d.adb==="device"));$("st1").classList.toggle("done",DEVS.some(d=>d.online));
+  $("devs").innerHTML=DEVS.length?DEVS.map(d=>{const[st,txt]=devState(d);return`
+    <div class="dev ${d.selected?"sel":""}">
+      <div class="top"><span class="dot ${st}"></span><div style="flex:1;min-width:0"><div class="nm">${esc(d.name)}</div><div class="sub">${esc(txt)} · ${esc(d.ip)}</div></div>
+        ${d.selected?'<span class="pill ok">Playing here</span>':`<button class="btn sm" onclick="pick('${d.ip}')">Use this TV</button>`}</div>
+      <div class="acts">
+        <button class="btn sm" onclick="reconnect(this,'${d.ip}')">Reconnect</button>
+        ${d.kodi===false?`<button class="btn p sm" onclick="installKodi(this,'${d.ip}')">Install Kodi</button>`:`<button class="btn sm" onclick="tune(this,'${d.ip}')">Optimize Kodi</button><button class="btn sm" onclick="updateKodi(this,'${d.ip}')">Update Kodi</button>`}
+        <button class="btn sm ghost danger" onclick="forget('${d.ip}')">Forget</button>
+      </div></div>`}).join(""):'<div class="empty" style="padding:28px"><b>No TVs yet</b>Turn on ADB debugging on your TV, then press Search network.</div>';
+}
+async function loadDevs(){DEVS=await api("/api/devices");if(!Array.isArray(DEVS))DEVS=[];renderDevs()}
+async function scan(){await busy($("scanBtn"),"Searching…",async()=>{toast("Searching your Wi-Fi for TVs…");DEVS=await api("/api/scan",{});if(!Array.isArray(DEVS))DEVS=[];renderDevs();
+  toast(DEVS.length?`Found ${DEVS.length} TV${DEVS.length>1?"s":""}`:"No TVs found. Check ADB debugging is on and the TV is on this Wi-Fi.",DEVS.length?"ok":"bad",6000)})}
+async function pick(ip){await api("/api/select",{ip});await loadDevs();toast("Movies will play on "+(sel()?.name||ip),"ok")}
+async function addIp(){const ip=await modal("Add a TV by IP address","Find it on the TV: Settings → Network (Fire TV: My Fire TV → About → Network).",{input:true,placeholder:"192.168.1.20"});if(!ip)return;
+  toast("Connecting… look at the TV and accept the prompt",'',7000);const r=await api("/api/adddevice",{ip});toast(r.msg,r.ok?"ok":"bad",7000);loadDevs()}
+async function reconnect(b,ip){await busy(b,"Connecting…",async()=>{const r=await api("/api/reconnect",{ip});toast(r.msg,r.ok?"ok":"bad",6000);await loadDevs()})}
+async function tune(b,ip){if(!await modal("Optimize Kodi?","Kodi restarts once. Sets a big streaming buffer, smooth 24p playback, and lets TV Cast control it.",{ok:"Optimize"}))return;
+  await busy(b,"Optimizing…",async()=>{const r=await api("/api/tune",{ip});toast(r.msg,r.ok?"ok":"bad",7000);await loadDevs()})}
+async function installKodi(b,ip){if(!await modal("Install Kodi on this TV?","Downloads the official Kodi from kodi.tv (about 70 MB), checks it's genuine, installs and optimizes it. Takes 2–5 minutes.",{ok:"Install"}))return;
+  await busy(b,"Installing…",async()=>{toast("Installing Kodi — this takes a few minutes…","",9000);const r=await api("/api/installkodi",{ip});toast(r.msg,r.ok?"ok":"bad",8000);await loadDevs()})}
+async function updateKodi(b,ip){await busy(b,"Checking…",async()=>{const v=await api("/api/kodilatest?ip="+encodeURIComponent(ip));
+  if(v.installed&&v.latest&&v.installed.split("-")[0]>=v.latest){toast(`Kodi ${v.installed} is up to date`,"ok");return}
+  if(!await modal("Update Kodi?",`Installed: ${v.installed||"none"}\nLatest: ${v.latest}\nYour Kodi settings are kept.`,{ok:"Update"}))return;
+  b.innerHTML='<span class="spin"></span> Updating…';const r=await api("/api/installkodi",{ip});toast(r.msg,r.ok?"ok":"bad",8000);await loadDevs()})}
+async function forget(ip){if(!await modal("Forget this TV?","You can add it again any time with Search network.",{ok:"Forget"}))return;await api("/api/forget",{ip});loadDevs()}
+
+/* ---------- library ---------- */
+const hues=[220,260,190,330,20,150,280,200];
+function artBg(name){let h=0;for(const c of name)h=(h*31+c.charCodeAt(0))>>>0;const a=hues[h%hues.length],b=(a+40+h%60)%360;return`linear-gradient(135deg,hsl(${a} 55% 28%),hsl(${b} 60% 16%))`}
+function cleanTitle(n){let t=n.replace(/\.[^.]+$/,"").replace(/[._]+/g," ");const m=t.match(/^(.*?)(\(?\b(19|20)\d{2}\b\)?)/);if(m&&m[1].trim().length>1)t=m[1].trim()+" ("+m[2].replace(/[()]/g,"")+")";
+  return t.replace(/\[.*?\]|\{.*?\}/g,"").replace(/\b(1080p|2160p|720p|4k|x26[45]|hevc|web-?dl|bluray|remux|hdr10?|dv)\b.*$/i,"").trim()||n}
+async function loadLib(){const r=await api("/api/library");LIB=r.items||[];render();
+  for(const it of LIB)if(!PROBE[it.id]){PROBE[it.id]={};api("/api/probe?id="+it.id).then(p=>{PROBE[it.id]=p||{};render()})}}
+async function rescan(b){await busy(b,"",async()=>{const r=await api("/api/rescan",{});LIB=r.items||[];render();toast(`Found ${LIB.length} videos`,"ok")})}
+function render(){
+  const q=$("q").value.toLowerCase().trim();
+  let items=LIB.filter(i=>!q||(i.name+" "+i.dir).toLowerCase().includes(q));
+  if(FILTER==="4k")items=items.filter(i=>PROBE[i.id]?.res==="4K");
+  if(FILTER==="hdr")items=items.filter(i=>PROBE[i.id]?.hdr);
+  if(FILTER==="big")items=[...items].sort((a,b)=>b.size-a.size);
+  $("count").textContent=LIB.length?`${items.length} video${items.length===1?"":"s"}`:"";
+  $("grid").innerHTML=items.length?items.map(i=>{const p=PROBE[i.id]||{};const b=[];
+    if(p.res)b.push(`<span class="badge ${p.res==="4K"?"k":""}">${p.res}</span>`);if(p.hdr)b.push(`<span class="badge h">${esc(p.hdr)}</span>`);
+    const d=[gb(i.size)];if(p.duration)d.push(hms(p.duration));if(p.vcodec)d.push(p.vcodec+(p.bit10?" 10-bit":""));if(p.audio?.length)d.push(p.audio.length>1?p.audio.length+" audio tracks":p.audio[0]);
+    return`<div class="tile" onclick="play('${i.id}',this)" title="${esc(i.name)}"><div class="art" style="background:${artBg(i.name)}"><div class="q">${b.join("")}</div><div class="play">▶</div><div class="t">${esc(cleanTitle(i.name))}</div></div>
+      <div class="meta"><div class="n">${esc(i.name)}</div><div class="d">${d.map(esc).join("<span>·</span>")}</div></div></div>`}).join("")
+    :`<div class="empty" style="grid-column:1/-1"><b>${LIB.length?"Nothing matches":"No videos found yet"}</b>${LIB.length?"Try another search.":"Add a folder in ⚙︎ settings, or use “Open file…”."}</div>`;
+}
+document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{FILTER=c.dataset.f;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===c));render()});
+async function play(id,el){const d=sel();if(!d){openDrawer();toast("First pick or find a TV","bad");return}
+  el?.style.setProperty("opacity",".6");toast("Sending to "+d.name+"…");const r=await api("/api/play",{id,ip:d.ip});el?.style.removeProperty("opacity");toast(r.msg,r.ok?"ok":"bad",7000);if(r.ok)setTimeout(poll,2500);loadDevs()}
+async function openFile(){const r=await api("/api/openfile",{});if(r.needPath){const p=await modal("Open a movie","Type the full path of the video file:",{input:true});if(!p)return;const r2=await api("/api/openfile",{path:p});if(r2.ok){await loadLib();play(r2.id)}else toast("File not found","bad");return}
+  if(r.ok){await loadLib();play(r.id)}}
+async function addFolder(){let r=await api("/api/addfolder",{});if(r.needPath){const p=await modal("Add a folder","Type the full path of a folder with videos:",{input:true});if(!p)return;r=await api("/api/addfolder",{path:p})}
+  if(r.ok){toast(r.msg,"ok");loadInfo();loadLib()}}
+async function rmFolder(p){await api("/api/removefolder",{path:p});loadInfo();loadLib()}
+
+/* ---------- settings ---------- */
+async function loadInfo(){INFO=await api("/api/info");$("ver").textContent="TV Cast "+(INFO.version||"");
+  $("about").innerHTML=`Version ${esc(INFO.version)} · ${esc({darwin:"macOS",windows:"Windows",linux:"Linux"}[INFO.os]||INFO.os)}<br>Streams the original file — no re-encoding, full quality.<br>${INFO.ffprobe?"":"Tip: install ffmpeg to see resolution/HDR badges."}`;
+  $("folders").innerHTML=(INFO.folders||[]).map(f=>`<div class="folder">📁<span title="${esc(f)}">${esc(f)}</span><button class="x" title="Remove" data-p="${esc(f)}">×</button></div>`).join("");
+  $("folders").querySelectorAll(".x").forEach(b=>b.onclick=()=>rmFolder(b.dataset.p));
+  const lid=INFO.lidGuard;$("lidtxt").textContent=lid?(INFO.os==="darwin"?"On — only while a movie is playing; the Mac sleeps normally otherwise. Keep it plugged in for long movies.":"On. Keep it plugged in for long movies."):"Off — closing the lid stops streaming.";
+  $("lidact").innerHTML=lid?'<span class="pill ok">On</span>':'<button class="btn p sm" onclick="lidOn(this)">Turn on</button>';
+  $("awake").textContent=INFO.awake?"● Keeping this computer awake for streaming":"";
+}
+async function lidOn(b){await busy(b,"…",async()=>{const r=await api("/api/lidguard",{});toast(r.msg,r.ok?"ok":"bad",7000);loadInfo()})}
+function openDrawer(){$("drawer").classList.add("on");$("scrim").classList.add("on");loadDevs();loadInfo()}
+function closeDrawer(){$("drawer").classList.remove("on");$("scrim").classList.remove("on")}
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer();
+  if(e.target.tagName!=="INPUT"&&e.target.tagName!=="SELECT"&&lastStatus?.playing){if(e.key===" "){e.preventDefault();ctl("playpause")}if(e.key==="ArrowRight")ctl("seekrel",10);if(e.key==="ArrowLeft")ctl("seekrel",-10)}});
+
+/* ---------- now playing ---------- */
+async function ctl(action,value){const r=await api("/api/control",{action,value:value??""});if(!r.ok)toast(r.msg,"bad");setTimeout(poll,350)}
+$("seek").addEventListener("input",()=>{seeking=true;if(lastStatus)$("npCur").textContent=hms($("seek").value/100*lastStatus.total)});
+$("seek").addEventListener("change",e=>{seeking=false;ctl("seekpct",e.target.value)});
+function fill(el,opts,cur,off){const h=(off?'<option value="off">Subtitles off</option>':"")+opts.map(o=>`<option value="${o.i}">${esc(o.n||("Track "+(o.i+1)))}</option>`).join("");
+  if(el._h!==h){el.innerHTML=h;el._h=h}if(document.activeElement!==el)el.value=String(cur);el.style.display=opts.length?"":"none"}
+async function poll(){const s=await api("/api/status");lastStatus=s;const np=$("np");
+  if(!s.playing){np.style.display="none";return}
+  np.style.display="block";np.classList.toggle("paused",!!s.paused);$("npon").textContent=(s.paused?"Paused on ":"Now playing on ")+(sel()?.name||"TV");
+  $("npTitle").textContent=cleanTitle(s.title||"");$("npTitle").title=s.title||"";
+  if(!seeking){$("seek").value=s.pct||0;$("npCur").textContent=hms(s.time)}$("npTot").textContent=hms(s.total);
+  $("pp").textContent=s.paused?"▶":"❚❚";fill($("aud"),s.audios||[],s.audio,false);fill($("sub"),s.subs||[],s.sub,true)}
+
+loadDevs().then(()=>{if(!DEVS.length)scan()});loadLib();loadInfo();poll();
+setInterval(poll,1500);setInterval(loadDevs,10000);setInterval(loadInfo,30000);
+</script>
+</body>
+</html>

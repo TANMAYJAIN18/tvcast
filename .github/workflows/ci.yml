@@ -1,0 +1,23 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: stable }
+      - name: Vet (all platforms)
+        working-directory: engine
+        run: for os in linux windows darwin; do GOOS=$os go vet ./...; done
+      - name: Build (all platforms)
+        run: ./build.sh others
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: stable }
+      - run: ./build.sh mac

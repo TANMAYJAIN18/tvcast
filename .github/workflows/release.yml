@@ -1,0 +1,25 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: stable }
+      - name: Build everything
+        run: VERSION="${GITHUB_REF_NAME#v}" ./build.sh
+      - name: Publish release
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          cd dist
+          FILES="TVCast-macOS.zip TVCast-windows-x64.exe TVCast-windows-arm64.exe tvcast-linux-x64 tvcast-linux-arm64 SHA256SUMS.txt"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" $FILES --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" $FILES --title "TV Cast $GITHUB_REF_NAME" --generate-notes
+          fi
