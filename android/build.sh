@@ -35,12 +35,19 @@ LDF="-s -w -X main.Version=$VERSION"
  # 32-bit Android (<= 10) kills apps that try the newer time64 syscalls instead of returning
  # "not supported", so Go's built-in fallback never runs. Patch the runtime (for this build
  # only) to use the classic syscalls directly.
+ # (Go 1.27+ fixed this upstream by checking the kernel version; then no patch is needed.)
  RT="$(go env GOROOT)/src/runtime/os_linux32.go"
- sed -e 's/if !isFutexTime32bitOnly.Load() {/if false \&\& !isFutexTime32bitOnly.Load() {/' \
-     -e 's/if !isSetTime32bitOnly.Load() {/if false \&\& !isSetTime32bitOnly.Load() {/' "$RT" > "$B/os_linux32.go"
- grep -q 'if false && !isFutexTime32bitOnly' "$B/os_linux32.go" || { echo "runtime patch failed (Go changed?)"; exit 1; }
- printf '{"Replace":{"%s":"%s"}}' "$RT" "$B/os_linux32.go" > "$B/overlay.json"
- CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -overlay "$B/overlay.json" -trimpath -tags tvandroid -ldflags "$LDF" -o "$B/apk/lib/armeabi-v7a/libtvcast.so" .
+ OVERLAY=()
+ if grep -q 'if !isFutexTime32bitOnly.Load() {' "$RT"; then
+   sed -e 's/if !isFutexTime32bitOnly.Load() {/if false \&\& !isFutexTime32bitOnly.Load() {/' \
+       -e 's/if !isSetTime32bitOnly.Load() {/if false \&\& !isSetTime32bitOnly.Load() {/' "$RT" > "$B/os_linux32.go"
+   printf '{"Replace":{"%s":"%s"}}' "$RT" "$B/os_linux32.go" > "$B/overlay.json"
+   OVERLAY=(-overlay "$B/overlay.json")
+   echo "    (patched Go runtime for 32-bit Android <= 10)"
+ elif ! grep -q 'configure64bitsTimeOn32BitsArchitectures' "$RT"; then
+   echo "WARNING: unknown Go runtime layout; 32-bit build may crash on Android <= 10"
+ fi
+ CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build ${OVERLAY[@]+"${OVERLAY[@]}"} -trimpath -tags tvandroid -ldflags "$LDF" -o "$B/apk/lib/armeabi-v7a/libtvcast.so" .
  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -tags tvandroid -ldflags "$LDF" -o "$B/apk/lib/x86_64/libtvcast.so" .)
 
 echo "==> resources"
