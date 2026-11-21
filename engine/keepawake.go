@@ -83,13 +83,15 @@ func anyTVPlayingOurs() bool {
 
 func healthCheck() {
 	// adb server wedged? ("adb devices" should answer in well under 10 s)
-	if findTool("adb") == "" {
+	if !adbAvailable() {
 		ensureADBInstalled()
 		adbStartServer()
-	} else if r := adb([]string{"devices"}, "", 10*time.Second); r.Code == -2 {
-		log.Printf("adb not responding; restarting it")
-		adb([]string{"kill-server"}, "", 10*time.Second)
-		adbStartServer()
+	} else if !useNativeADB {
+		if r := adb([]string{"devices"}, "", 10*time.Second); r.Code == -2 {
+			log.Printf("adb not responding; restarting it")
+			adb([]string{"kill-server"}, "", 10*time.Second)
+			adbStartServer()
+		}
 	}
 	// a known TV vanished from its address (new IP from the router)? search again.
 	missing := false

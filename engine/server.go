@@ -157,8 +157,12 @@ func api(w http.ResponseWriter, r *http.Request) {
 	case "/api/info":
 		var folders []string
 		readConfig(func(c *Config) { folders = append(folders, c.Folders...) })
-		writeJSON(w, map[string]any{"version": Version, "os": runtime.GOOS, "lidGuard": lidGuardInstalled(),
-			"awake": isAwake(), "adb": findTool("adb") != "", "ffprobe": findTool("ffprobe") != "", "folders": folders,
+		osName := runtime.GOOS
+		if isAndroidBuild {
+			osName = "android"
+		}
+		writeJSON(w, map[string]any{"version": Version, "os": osName, "lidGuard": lidGuardInstalled(),
+			"awake": isAwake(), "adb": adbAvailable(), "ffprobe": findTool("ffprobe") != "", "folders": folders,
 			"videos": library.Count()})
 	case "/api/library":
 		writeJSON(w, map[string]any{"items": library.Items()})

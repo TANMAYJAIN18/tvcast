@@ -1,7 +1,7 @@
 <p align="center"><img src="assets/icon.png" width="96" alt=""></p>
 <h1 align="center">TV Cast</h1>
-<p align="center"><b>Play any movie from your computer on your TV, at full original quality, with no lag.</b><br>
-4K · HDR · Dolby Vision · Atmos · 10 GB+ files · macOS, Windows, Linux → Fire TV &amp; Android TV</p>
+<p align="center"><b>Play any movie from your computer, phone or tablet on your TV, at full original quality, with no lag.</b><br>
+4K · HDR · Dolby Vision · Atmos · 10 GB+ files · macOS, Windows, Linux, Android → Fire TV &amp; Android TV</p>
 
 ---
 
@@ -20,6 +20,15 @@ curl -fsSL https://raw.githubusercontent.com/TANMAYJAIN18/tvcast/main/install.sh
 ```powershell
 irm https://raw.githubusercontent.com/TANMAYJAIN18/tvcast/main/install.ps1 | iex
 ```
+
+**Android phones and tablets**: download the APK from [Releases](https://github.com/TANMAYJAIN18/tvcast/releases/latest) and open it:
+| File | For |
+|---|---|
+| `TVCast-android-64bit.apk` | almost every phone and tablet from the last ~7 years (Vivo, Samsung Galaxy, Pixel, OnePlus, Xiaomi…) |
+| `TVCast-android-32bit.apk` | older 32-bit devices |
+| `TVCast-android.apk` | not sure? This one works on everything |
+
+Android asks once to allow installing from your browser/files app. To update, install a newer APK over it; your TVs and settings stay.
 
 Run the same command again any time to **update or repair**. Your TVs and settings are kept.
 
@@ -41,6 +50,16 @@ The installer gives you:
 2. Open **TV Cast** and press **Search network**. On the TV, accept **"Allow USB debugging?"** and tick **Always allow**.
 3. If the TV has no Kodi, press **Install Kodi**. TV Cast downloads the official build from kodi.tv, checks its SHA-256 checksum, installs it and tunes it.
 4. Click any movie. It plays.
+
+## Android notes
+
+- **Videos found automatically** in Movies, Download, DCIM and **SD cards / USB drives**.
+- On first start, allow **Videos** and **Notifications**, then allow TV Cast to **run in the background**, so streaming continues with the screen off.
+  - **Vivo / iQOO:** App info → Battery → *Allow high background power consumption*. Also lock TV Cast in Recents.
+  - **Samsung:** App info → Battery → *Unrestricted*.
+- The TV asks **"Allow USB debugging?"** once for each phone or tablet. Tick *Always allow*.
+- A phone, a tablet and a computer can all control the same TV. They share Kodi's settings automatically.
+- While streaming, TV Cast holds a CPU wake lock and a high-performance Wi-Fi lock. It releases them when nothing plays.
 
 ## Features
 
@@ -73,7 +92,8 @@ The installer gives you:
 
 - **Engine** (`engine/`, Go, no dependencies): one codebase for every OS. Streams with `sendfile` and full HTTP Range support; ~300 MB/s on a laptop, far beyond what any 4K movie needs.
 - **macOS app** (`macos/`, Swift): native window, menus and Dock icon. The engine runs as a per-user LaunchAgent with automatic restart.
-- **adb**: Google's official platform-tools, downloaded automatically on first run if missing.
+- **adb**: on computers, Google's official platform-tools (downloaded automatically if missing). On Android, a built-in ADB client written in Go (RSA auth, shell, sync push/pull, port forwarding), so phones need no extra tools.
+- **Android app** (`android/`, Java, no third-party libraries): runs the same engine as a foreground service and shows the same UI in a WebView.
 - **ffprobe** (optional): if installed (`brew install ffmpeg`), shows resolution/HDR/audio badges.
 
 ## Tips
@@ -101,6 +121,7 @@ Requires Go 1.22+ (and on macOS, the Xcode Command Line Tools for the app window
 ./build.sh          # everything → dist/
 ./build.sh mac      # macOS app only
 ./install.sh        # installs from your local dist/ build
+./android/build.sh  # Android APKs (needs JDK 11+ and Android SDK build-tools/platform 34)
 ```
 Releases are built by GitHub Actions when a `v*` tag is pushed.
 

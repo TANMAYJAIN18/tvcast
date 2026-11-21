@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const isAndroidBuild = false
+
 const lidFlag = "/private/tmp/tvcast-active"
 const lidGuardPlist = "/Library/LaunchDaemons/com.tvcast.sleepguard.plist"
 

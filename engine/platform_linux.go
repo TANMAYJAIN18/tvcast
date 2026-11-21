@@ -1,3 +1,5 @@
+//go:build linux && !android && !tvandroid
+
 package main
 
 import (
@@ -9,6 +11,8 @@ import (
 	"sync"
 	"syscall"
 )
+
+const isAndroidBuild = false
 
 var (
 	inhMu   sync.Mutex

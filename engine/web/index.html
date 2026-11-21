@@ -190,7 +190,7 @@ footer{max-width:1240px;margin:20px auto 0;padding:0 28px;color:var(--faint);fon
       <button class="chip" data-f="hdr">HDR</button>
       <button class="chip" data-f="big">Biggest</button>
     </div>
-    <button class="btn" onclick="openFile()">Open file…</button>
+    <button class="btn" id="openBtn" onclick="openFile()">Open file…</button>
     <button class="btn" onclick="rescan(this)" title="Look for new videos">↻</button>
   </div>
   <h2 id="count"></h2>
@@ -225,7 +225,7 @@ footer{max-width:1240px;margin:20px auto 0;padding:0 28px;color:var(--faint);fon
 "use strict";
 let LIB=[], DEVS=[], INFO={}, PROBE={}, FILTER="all", seeking=false, lastStatus=null;
 const $=id=>document.getElementById(id);
-const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const gb=n=>n>=1e9?(n/1e9).toFixed(1)+" GB":Math.round(n/1e6)+" MB";
 const hms=s=>{s=Math.max(0,Math.floor(s||0));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;return(h?h+":":"")+String(m).padStart(h?2:1,"0")+":"+String(x).padStart(2,"0")};
 function toast(msg,kind="",ms=4000){if(!msg)return;const t=document.createElement("div");t.className="toast "+kind;t.textContent=msg;$("toasts").appendChild(t);setTimeout(()=>t.remove(),ms)}
@@ -276,7 +276,7 @@ function renderDevs(){
 async function loadDevs(){DEVS=await api("/api/devices");if(!Array.isArray(DEVS))DEVS=[];renderDevs()}
 async function scan(){await busy($("scanBtn"),"Searching…",async()=>{toast("Searching your Wi-Fi for TVs…");DEVS=await api("/api/scan",{});if(!Array.isArray(DEVS))DEVS=[];renderDevs();
   toast(DEVS.length?`Found ${DEVS.length} TV${DEVS.length>1?"s":""}`:"No TVs found. Check ADB debugging is on and the TV is on this Wi-Fi.",DEVS.length?"ok":"bad",6000)})}
-async function pick(ip){await api("/api/select",{ip});await loadDevs();toast("Movies will play on "+(sel()?.name||ip),"ok")}
+async function pick(ip){await api("/api/select",{ip});await loadDevs();toast("Movies will play on "+((sel()||{}).name||ip),"ok")}
 async function addIp(){const ip=await modal("Add a TV by IP address","Find it on the TV: Settings → Network (Fire TV: My Fire TV → About → Network).",{input:true,placeholder:"192.168.1.20"});if(!ip)return;
   toast("Connecting… look at the TV and accept the prompt",'',7000);const r=await api("/api/adddevice",{ip});toast(r.msg,r.ok?"ok":"bad",7000);loadDevs()}
 async function reconnect(b,ip){await busy(b,"Connecting…",async()=>{const r=await api("/api/reconnect",{ip});toast(r.msg,r.ok?"ok":"bad",6000);await loadDevs()})}
@@ -301,20 +301,20 @@ async function rescan(b){await busy(b,"",async()=>{const r=await api("/api/resca
 function render(){
   const q=$("q").value.toLowerCase().trim();
   let items=LIB.filter(i=>!q||(i.name+" "+i.dir).toLowerCase().includes(q));
-  if(FILTER==="4k")items=items.filter(i=>PROBE[i.id]?.res==="4K");
-  if(FILTER==="hdr")items=items.filter(i=>PROBE[i.id]?.hdr);
+  if(FILTER==="4k")items=items.filter(i=>(PROBE[i.id]||{}).res==="4K");
+  if(FILTER==="hdr")items=items.filter(i=>(PROBE[i.id]||{}).hdr);
   if(FILTER==="big")items=[...items].sort((a,b)=>b.size-a.size);
   $("count").textContent=LIB.length?`${items.length} video${items.length===1?"":"s"}`:"";
   $("grid").innerHTML=items.length?items.map(i=>{const p=PROBE[i.id]||{};const b=[];
     if(p.res)b.push(`<span class="badge ${p.res==="4K"?"k":""}">${p.res}</span>`);if(p.hdr)b.push(`<span class="badge h">${esc(p.hdr)}</span>`);
-    const d=[gb(i.size)];if(p.duration)d.push(hms(p.duration));if(p.vcodec)d.push(p.vcodec+(p.bit10?" 10-bit":""));if(p.audio?.length)d.push(p.audio.length>1?p.audio.length+" audio tracks":p.audio[0]);
+    const d=[gb(i.size)];if(p.duration)d.push(hms(p.duration));if(p.vcodec)d.push(p.vcodec+(p.bit10?" 10-bit":""));if(p.audio&&p.audio.length)d.push(p.audio.length>1?p.audio.length+" audio tracks":p.audio[0]);
     return`<div class="tile" onclick="play('${i.id}',this)" title="${esc(i.name)}"><div class="art" style="background:${artBg(i.name)}"><div class="q">${b.join("")}</div><div class="play">▶</div><div class="t">${esc(cleanTitle(i.name))}</div></div>
       <div class="meta"><div class="n">${esc(i.name)}</div><div class="d">${d.map(esc).join("<span>·</span>")}</div></div></div>`}).join("")
     :`<div class="empty" style="grid-column:1/-1"><b>${LIB.length?"Nothing matches":"No videos found yet"}</b>${LIB.length?"Try another search.":"Add a folder in ⚙︎ settings, or use “Open file…”."}</div>`;
 }
 document.querySelectorAll(".chip").forEach(c=>c.onclick=()=>{FILTER=c.dataset.f;document.querySelectorAll(".chip").forEach(x=>x.classList.toggle("on",x===c));render()});
 async function play(id,el){const d=sel();if(!d){openDrawer();toast("First pick or find a TV","bad");return}
-  el?.style.setProperty("opacity",".6");toast("Sending to "+d.name+"…");const r=await api("/api/play",{id,ip:d.ip});el?.style.removeProperty("opacity");toast(r.msg,r.ok?"ok":"bad",7000);if(r.ok)setTimeout(poll,2500);loadDevs()}
+  if(el)el.style.setProperty("opacity",".6");toast("Sending to "+d.name+"…");const r=await api("/api/play",{id,ip:d.ip});if(el)el.style.removeProperty("opacity");toast(r.msg,r.ok?"ok":"bad",7000);if(r.ok)setTimeout(poll,2500);loadDevs()}
 async function openFile(){const r=await api("/api/openfile",{});if(r.needPath){const p=await modal("Open a movie","Type the full path of the video file:",{input:true});if(!p)return;const r2=await api("/api/openfile",{path:p});if(r2.ok){await loadLib();play(r2.id)}else toast("File not found","bad");return}
   if(r.ok){await loadLib();play(r.id)}}
 async function addFolder(){let r=await api("/api/addfolder",{});if(r.needPath){const p=await modal("Add a folder","Type the full path of a folder with videos:",{input:true});if(!p)return;r=await api("/api/addfolder",{path:p})}
@@ -323,28 +323,29 @@ async function rmFolder(p){await api("/api/removefolder",{path:p});loadInfo();lo
 
 /* ---------- settings ---------- */
 async function loadInfo(){INFO=await api("/api/info");$("ver").textContent="TV Cast "+(INFO.version||"");
-  $("about").innerHTML=`Version ${esc(INFO.version)} · ${esc({darwin:"macOS",windows:"Windows",linux:"Linux"}[INFO.os]||INFO.os)}<br>Streams the original file — no re-encoding, full quality.<br>${INFO.ffprobe?"":"Tip: install ffmpeg to see resolution/HDR badges."}`;
+  $("about").innerHTML=`Version ${esc(INFO.version)} · ${esc({darwin:"macOS",windows:"Windows",linux:"Linux",android:"Android"}[INFO.os]||INFO.os)}<br>Streams the original file — no re-encoding, full quality.<br>${INFO.ffprobe?"":"Tip: install ffmpeg to see resolution/HDR badges."}`;
   $("folders").innerHTML=(INFO.folders||[]).map(f=>`<div class="folder">📁<span title="${esc(f)}">${esc(f)}</span><button class="x" title="Remove" data-p="${esc(f)}">×</button></div>`).join("");
   $("folders").querySelectorAll(".x").forEach(b=>b.onclick=()=>rmFolder(b.dataset.p));
   const lid=INFO.lidGuard;$("lidtxt").textContent=lid?(INFO.os==="darwin"?"On — only while a movie is playing; the Mac sleeps normally otherwise. Keep it plugged in for long movies.":"On. Keep it plugged in for long movies."):"Off — closing the lid stops streaming.";
   $("lidact").innerHTML=lid?'<span class="pill ok">On</span>':'<button class="btn p sm" onclick="lidOn(this)">Turn on</button>';
-  $("awake").textContent=INFO.awake?"● Keeping this computer awake for streaming":"";
+  const android=INFO.os==="android";$("lidrow").style.display=android?"none":"";$("openBtn").style.display=android?"none":"";
+  $("awake").textContent=INFO.awake?"● Keeping this device awake for streaming":"";
 }
 async function lidOn(b){await busy(b,"…",async()=>{const r=await api("/api/lidguard",{});toast(r.msg,r.ok?"ok":"bad",7000);loadInfo()})}
 function openDrawer(){$("drawer").classList.add("on");$("scrim").classList.add("on");loadDevs();loadInfo()}
 function closeDrawer(){$("drawer").classList.remove("on");$("scrim").classList.remove("on")}
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeDrawer();
-  if(e.target.tagName!=="INPUT"&&e.target.tagName!=="SELECT"&&lastStatus?.playing){if(e.key===" "){e.preventDefault();ctl("playpause")}if(e.key==="ArrowRight")ctl("seekrel",10);if(e.key==="ArrowLeft")ctl("seekrel",-10)}});
+  if(e.target.tagName!=="INPUT"&&e.target.tagName!=="SELECT"&&lastStatus&&lastStatus.playing){if(e.key===" "){e.preventDefault();ctl("playpause")}if(e.key==="ArrowRight")ctl("seekrel",10);if(e.key==="ArrowLeft")ctl("seekrel",-10)}});
 
 /* ---------- now playing ---------- */
-async function ctl(action,value){const r=await api("/api/control",{action,value:value??""});if(!r.ok)toast(r.msg,"bad");setTimeout(poll,350)}
+async function ctl(action,value){const r=await api("/api/control",{action,value:value==null?"":value});if(!r.ok)toast(r.msg,"bad");setTimeout(poll,350)}
 $("seek").addEventListener("input",()=>{seeking=true;if(lastStatus)$("npCur").textContent=hms($("seek").value/100*lastStatus.total)});
 $("seek").addEventListener("change",e=>{seeking=false;ctl("seekpct",e.target.value)});
 function fill(el,opts,cur,off){const h=(off?'<option value="off">Subtitles off</option>':"")+opts.map(o=>`<option value="${o.i}">${esc(o.n||("Track "+(o.i+1)))}</option>`).join("");
   if(el._h!==h){el.innerHTML=h;el._h=h}if(document.activeElement!==el)el.value=String(cur);el.style.display=opts.length?"":"none"}
 async function poll(){const s=await api("/api/status");lastStatus=s;const np=$("np");
   if(!s.playing){np.style.display="none";return}
-  np.style.display="block";np.classList.toggle("paused",!!s.paused);$("npon").textContent=(s.paused?"Paused on ":"Now playing on ")+(sel()?.name||"TV");
+  np.style.display="block";np.classList.toggle("paused",!!s.paused);$("npon").textContent=(s.paused?"Paused on ":"Now playing on ")+((sel()||{}).name||"TV");
   $("npTitle").textContent=cleanTitle(s.title||"");$("npTitle").title=s.title||"";
   if(!seeking){$("seek").value=s.pct||0;$("npCur").textContent=hms(s.time)}$("npTot").textContent=hms(s.total);
   $("pp").textContent=s.paused?"▶":"❚❚";fill($("aud"),s.audios||[],s.audio,false);fill($("sub"),s.subs||[],s.sub,true)}

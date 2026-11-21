@@ -39,6 +39,7 @@ install_mac() {
   launchctl bootout "gui/$(id -u)/com.tvcast.engine" >/dev/null 2>&1 || true
   pkill -f "TV Cast.app/Contents/Resources/tvcast-engine" >/dev/null 2>&1 || true
   pkill -f "TV Cast.app/Contents/Resources/server.py" >/dev/null 2>&1 || true
+  for _ in $(seq 1 25); do pgrep -f "TV Cast.app/Contents/MacOS/TVCast" >/dev/null || break; sleep 0.2; done
   local old="$HOME/Applications/TV Cast.app"
   if [ -d "$old" ] && [ "$(defaults read "$old/Contents/Info" CFBundleIdentifier 2>/dev/null)" = "local.tvcast" ]; then
     rm -rf "$old"; ok "Removed the old prototype app"
@@ -65,7 +66,7 @@ install_mac() {
   fi
 
   say "Starting TV Cast"
-  open "$dest/TV Cast.app"
+  open "$dest/TV Cast.app" 2>/dev/null || { sleep 2; open "$dest/TV Cast.app"; }
   ok "Done. TV Cast also runs quietly in the background after every login."
   echo "   First time: click Allow when macOS asks about local network, folders and incoming connections."
 }

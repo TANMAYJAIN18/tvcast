@@ -8,6 +8,8 @@ import (
 	"syscall"
 )
 
+const isAndroidBuild = false
+
 var (
 	kernel32                    = syscall.NewLazyDLL("kernel32.dll")
 	procSetThreadExecutionState = kernel32.NewProc("SetThreadExecutionState")

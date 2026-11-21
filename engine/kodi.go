@@ -70,11 +70,20 @@ func tuneKodi(ip string) (bool, string) {
 	if ok, msg := ensureADB(ip); !ok {
 		return false, msg
 	}
+	// Several computers/phones may control the same TV: reuse the password Kodi already
+	// has (readable over adb, which the TV already trusts) instead of replacing it.
+	existing := ""
+	if device(ip).KodiPass == "" {
+		existing = fetchKodiPass(ip)
+	}
 	withConfig(func(c *Config) {
 		d := c.Devices[ip]
 		if d == nil {
 			d = &Device{}
 			c.Devices[ip] = d
+		}
+		if d.KodiPass == "" {
+			d.KodiPass = existing
 		}
 		if d.KodiPass == "" {
 			d.KodiPass = randomToken(10)
@@ -258,6 +267,71 @@ func tcpRPC(port int, method string, params any, timeout time.Duration) (any, er
 	return resp.Result, nil
 }
 
+var passRe = regexp.MustCompile(`<setting id="services.webserverpassword"[^>]*>([^<]*)</setting>`)
+
+// fetchKodiPass reads the TV's current Kodi web-control password ("" if none/unknown).
+func fetchKodiPass(ip string) string {
+	tmp, err := os.MkdirTemp("", "tvcast")
+	if err == nil {
+		defer os.RemoveAll(tmp)
+		local := filepath.Join(tmp, "gs.xml")
+		if adb([]string{"pull", kodiUserdata + "/guisettings.xml", local}, serialOf(ip), 30*time.Second).OK() {
+			if b, err := os.ReadFile(local); err == nil {
+				if m := passRe.FindSubmatch(b); m != nil {
+					return strings.NewReplacer("&amp;", "&", "&lt;", "<", "&gt;", ">", "&quot;", `"`).Replace(string(m[1]))
+				}
+			}
+			return ""
+		}
+	}
+	// Fire OS blocks the file: ask Kodi itself through its local-only control port.
+	if !portOpen(ip, 8080, time.Second) {
+		return "" // Kodi web control not on yet: nothing to reuse
+	}
+	r := adb([]string{"forward", "tcp:0", "tcp:9090"}, serialOf(ip), 10*time.Second)
+	port, err := strconv.Atoi(strings.TrimSpace(r.Out))
+	if err != nil {
+		return ""
+	}
+	defer adb([]string{"forward", "--remove", fmt.Sprintf("tcp:%d", port)}, serialOf(ip), 10*time.Second)
+	v, err := tcpRPC(port, "Settings.GetSettingValue", map[string]any{"setting": "services.webserverpassword"}, 8*time.Second)
+	if err != nil {
+		return ""
+	}
+	m, _ := v.(map[string]any)
+	return str(m["value"])
+}
+
+var (
+	adoptMu   sync.Mutex
+	adoptedAt = map[string]time.Time{}
+)
+
+// adoptKodiPass is used when Kodi rejects our password (another device re-optimized it).
+func adoptKodiPass(ip string) bool {
+	adoptMu.Lock()
+	if time.Since(adoptedAt[ip]) < time.Minute {
+		adoptMu.Unlock()
+		return false
+	}
+	adoptedAt[ip] = time.Now()
+	adoptMu.Unlock()
+	if ok, _ := ensureADB(ip); !ok {
+		return false
+	}
+	p := fetchKodiPass(ip)
+	if p == "" || p == device(ip).KodiPass {
+		return false
+	}
+	withConfig(func(c *Config) {
+		if d := c.Devices[ip]; d != nil {
+			d.KodiPass = p
+		}
+	})
+	log.Printf("adopted Kodi password from %s", ip)
+	return true
+}
+
 // ---------------------------------------------------------------- Kodi web JSON-RPC
 
 var kodiHTTP = &http.Client{Timeout: 5 * time.Second}
@@ -265,6 +339,16 @@ var kodiHTTP = &http.Client{Timeout: 5 * time.Second}
 var errNoPass = errors.New("Kodi not optimized yet")
 
 func rpc(ip, method string, params map[string]any) (any, error) {
+	res, err := rpcOnce(ip, method, params)
+	if err == errKodiAuth && adoptKodiPass(ip) {
+		return rpcOnce(ip, method, params)
+	}
+	return res, err
+}
+
+var errKodiAuth = errors.New("Kodi password mismatch (press Optimize Kodi)")
+
+func rpcOnce(ip, method string, params map[string]any) (any, error) {
 	pass := device(ip).KodiPass
 	if pass == "" {
 		return nil, errNoPass
@@ -285,7 +369,7 @@ func rpc(ip, method string, params map[string]any) (any, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 401 {
-		return nil, errors.New("Kodi password mismatch (press Optimize Kodi)")
+		return nil, errKodiAuth
 	}
 	var out struct {
 		Result any `json:"result"`

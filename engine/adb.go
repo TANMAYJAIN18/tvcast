@@ -85,7 +85,17 @@ func runCmd(exe string, args []string, timeout time.Duration) ProcResult {
 	return ProcResult{0, out}
 }
 
+// adb runs an adb command, using the built-in protocol client where there is no adb tool.
 func adb(args []string, serial string, timeout time.Duration) ProcResult {
+	if useNativeADB {
+		return adbNative(args, serial, timeout)
+	}
+	return adbExec(args, serial, timeout)
+}
+
+func adbAvailable() bool { return useNativeADB || findTool("adb") != "" }
+
+func adbExec(args []string, serial string, timeout time.Duration) ProcResult {
 	a := findTool("adb")
 	if a == "" {
 		return ProcResult{-1, "adb is not installed yet (TV Cast downloads it automatically; check your internet)"}
@@ -97,6 +107,9 @@ func adb(args []string, serial string, timeout time.Duration) ProcResult {
 }
 
 func adbStartServer() {
+	if useNativeADB {
+		return
+	}
 	a := findTool("adb")
 	if a == "" {
 		return
@@ -404,7 +417,7 @@ func firstNonEmpty(s ...string) string {
 
 // ensureADBInstalled downloads Google's official platform-tools if adb is missing.
 func ensureADBInstalled() {
-	if findTool("adb") != "" {
+	if useNativeADB || findTool("adb") != "" {
 		return
 	}
 	osName := map[string]string{"darwin": "darwin", "windows": "windows", "linux": "linux"}[runtime.GOOS]

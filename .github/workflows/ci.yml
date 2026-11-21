@@ -21,3 +21,13 @@ jobs:
       - uses: actions/setup-go@v5
         with: { go-version: stable }
       - run: ./build.sh mac
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with: { go-version: stable }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - name: Build APKs (throwaway signing key)
+        run: ./android/build.sh
